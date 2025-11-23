@@ -84,10 +84,14 @@ export async function commandStatus(gs: GameState): Promise<void> {
 
   const p = gs.getPlayerSnap();
   console.log(
-    `You are ${p.username}, and you have ${Object.keys(p.units).length} units.`
+    `You are ${p.username}, and you have ${Object.keys(p.units).length} units.`,
   );
 
   for (const unit of Object.values(p.units)) {
     console.log(`* ${unit.id}: ${unit.location}, ${unit.rank}`);
   }
+}
+
+export function closeInput() {
+  rl.close();
 }
