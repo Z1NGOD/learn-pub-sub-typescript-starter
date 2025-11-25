@@ -2,6 +2,9 @@ import amqp, { type Channel } from "amqplib";
 
 type SimpleQueueType = "durable" | "transient";
 
+/**
+ * @returns [channel, queue]
+ */
 export async function declareAndBind(
   conn: amqp.ChannelModel,
   exchange: string,
