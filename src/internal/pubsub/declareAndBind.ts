@@ -18,7 +18,7 @@ export async function declareAndBind(
     durable: queueType === "durable",
     autoDelete: queueType === "transient",
     exclusive: queueType === "transient",
-    arguments: null,
+    arguments: { "x-dead-letter-exchange": "peril_dlx" },
   };
 
   const queue = await ch.assertQueue(queueName, args);
