@@ -12,11 +12,19 @@ import {
   getInput,
   printServerHelp,
 } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind } from "../internal/pubsub/declareAndBind.js";
+import { subscribeMsgPack } from "../internal/pubsub/consume.js";
+import { writeLog, type GameLog } from "../internal/gamelogic/logs.js";
+type AckType = "Ack" | "NackRequeue" | "NackDiscard";
 
 const connectionString = "amqp://guest:guest@localhost:5672/";
 
 const state: PlayingState = { isPaused: true };
+
+function handlerGameLog(log: GameLog): AckType {
+  writeLog(log);
+  process.stdout.write("> ");
+  return "Ack";
+}
 
 async function main() {
   console.log("Starting Peril server...");
@@ -24,12 +32,13 @@ async function main() {
   if (connection.connection) {
     console.log("Started succesfully");
     const confirmedChannel = await connection.createConfirmChannel();
-    const [channel, _] = await declareAndBind(
+    subscribeMsgPack<GameLog>(
       connection,
       ExchangePerilTopic,
       GameLogSlug,
       `${GameLogSlug}.*`,
       "durable",
+      handlerGameLog,
     );
     printServerHelp();
 

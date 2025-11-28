@@ -3,6 +3,7 @@ import {
   ArmyMovesPrefix,
   ExchangePerilDirect,
   ExchangePerilTopic,
+  GameLogSlug,
   PauseKey,
   WarRecognitionsPrefix,
 } from "../internal/routing/routing.js";
@@ -32,6 +33,8 @@ import type {
 } from "../internal/gamelogic/gamedata.js";
 import { publishJSON } from "../internal/pubsub/publishJSON.js";
 import { handleWar, WarOutcome } from "../internal/gamelogic/war.js";
+import type { GameLog } from "../internal/gamelogic/logs.js";
+import { publishMsgPack } from "../internal/pubsub/publish.js";
 
 const connectionString = "amqp://guest:guest@localhost:5672/";
 type AckType = "Ack" | "NackRequeue" | "NackDiscard";
@@ -79,28 +82,54 @@ function handlerMove(
   };
 }
 
-function handlerWar(gs: GameState): (ro: RecognitionOfWar) => AckType {
+function handlerWar(
+  gs: GameState,
+  ch: ConfirmChannel,
+  username: string,
+): (ro: RecognitionOfWar) => AckType {
   return (ro: RecognitionOfWar) => {
-    const warOutcome = handleWar(gs, ro);
-    if (warOutcome.result === WarOutcome.NotInvolved) {
-      process.stdout.write("> ");
+    const wo = handleWar(gs, ro);
+    if (wo.result === WarOutcome.NotInvolved) {
       return "NackRequeue";
-    } else if (warOutcome.result === WarOutcome.NoUnits) {
-      process.stdout.write("> ");
+    } else if (wo.result === WarOutcome.NoUnits) {
       return "NackDiscard";
     } else if (
-      warOutcome.result === WarOutcome.YouWon ||
-      warOutcome.result === WarOutcome.OpponentWon ||
-      warOutcome.result === WarOutcome.Draw
+      wo.result === WarOutcome.YouWon ||
+      wo.result === WarOutcome.OpponentWon ||
+      wo.result === WarOutcome.Draw
     ) {
-      process.stdout.write("> ");
+      if (wo.result === WarOutcome.YouWon) {
+        const { winner, loser } = wo;
+        publishGameLog(ch, username, `${winner} won a war against ${loser}`);
+      }
+      if (wo.result === WarOutcome.OpponentWon) {
+        const { winner, loser } = wo;
+        publishGameLog(ch, username, `${winner} won a war against ${loser}`);
+      }
+      if (wo.result === WarOutcome.Draw) {
+        const { attacker, defender } = wo;
+        publishGameLog(
+          ch,
+          username,
+          `A war between ${attacker} and ${defender} resulted in a draw`,
+        );
+      }
+
       return "Ack";
     } else {
       console.error("Could not process the war outcome");
-      process.stdout.write("> ");
       return "NackDiscard";
     }
   };
+}
+
+function publishGameLog(ch: ConfirmChannel, username: string, msg: string) {
+  const gameLog: GameLog = {
+    username: username,
+    message: msg,
+    currentTime: new Date(),
+  };
+  publishMsgPack(ch, ExchangePerilTopic, `${GameLogSlug}.${username}`, gameLog);
 }
 
 async function main() {
@@ -133,7 +162,7 @@ async function main() {
       `${WarRecognitionsPrefix}`,
       `${WarRecognitionsPrefix}.*`,
       "durable",
-      handlerWar(game),
+      handlerWar(game, confirmedChannel, username),
     );
 
     outer: while (true) {
