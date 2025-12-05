@@ -19,6 +19,7 @@ export async function subscribeMsgPack<T>(
     routingKey,
     simpleQueueType,
   );
+  ch.prefetch(10);
   ch.consume(queue.queue, (msg) => {
     if (msg !== null) {
       const decodedMsg = decode(msg.content);

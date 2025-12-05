@@ -12,6 +12,7 @@ import {
   closeInput,
   commandStatus,
   getInput,
+  getMaliciousLog,
   printClientHelp,
   printQuit,
 } from "../internal/gamelogic/gamelogic.js";
@@ -196,7 +197,12 @@ async function main() {
           break;
 
         case "spam":
-          console.log("Spamming not allowed yet!");
+          if (input[1]) {
+            const number = Number(input[1]);
+            for (let i = 0; i < number; i++) {
+              publishGameLog(confirmedChannel, username, getMaliciousLog());
+            }
+          }
           break;
 
         case "quit":

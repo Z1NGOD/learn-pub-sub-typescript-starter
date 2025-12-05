@@ -19,6 +19,7 @@ export async function subscribeJSON<T>(
     key,
     queueType,
   );
+  await ch.prefetch(1);
   ch.consume(queue.queue, (msg) => {
     if (msg !== null) {
       const parsedMsg = JSON.parse(msg.content.toString("utf8"));
